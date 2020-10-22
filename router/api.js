@@ -1,53 +1,44 @@
 const express = require('express')
-const Category = require('../model/Category')
 const router = express.Router()
-const Transaction = require('../model/TransactionSchema')
+const Sequelize = require('sequelize')
+const sequelize = new Sequelize('mysql://root:@localhost/crm_project')
+const dataBaseService = require('../SQL/dataBaseService')
 
-router.get('/transactions', async function (req, res) {
-    const transactions = await Transaction.find({})
-    res.send(transactions)
+router.get('/clients', async function (req, res) {
+    const clients = await sequelize.query(`
+    SELECT c.id,c.name, c.email, c.first_contact as firstContact, et.type as emailType, c.sold, o.name as owner, coun.name as country
+    FROM client as c JOIN email_type as et
+        on c.email_type = et.id
+        JOIN owner as o on c.owner = o.id
+        JOIN country as coun on c.country = coun.id
+    ORDER BY c.first_contact;
+    `)
+    res.send(clients[0])
 })
 
-router.get('/total',async function (req, res) {
-    const totalAaoutByCategoty = await Transaction.aggregate([
-        {
-            $group:
-            {
-                _id: "$category",
-                total: { $sum: "$amount" }
-            }
-        }])
-    res.send(totalAaoutByCategoty)
-
+router.post('/client', async function (req, res) {
+    const { client } = req.body
+    const newClient = await dataBaseService().addOneClient(client)
+    res.send(newClient[0])
 })
 
-router.get('/categories', async function (req, res) {
-    const categories = await Category.find({})
-    res.send(categories)
+router.get('/top', async function (req, res) {
+    const topOwners = await dataBaseService().getTopOwners()
+    res.send(topOwners)
 })
 
-router.post('/transaction', async function (req, res) {
-    const transaction = new Transaction(req.body)
-    await transaction.save()
-    res.send(transaction)
+router.get('/sales', async function (req, res) {
+    const salseByCountry = await dataBaseService().getSalseByCountry()
+    res.send(salseByCountry)
 })
-
-router.post('/category', async function (req, res) {
-    const category = new Category(req.body)
-    await category.save()
-    res.send(category)
+router.get('/date', async function (req, res) {
+    const salseByDate = await dataBaseService().getSalseByDate()
+    res.send(salseByDate)
 })
-
-router.delete('/transaction/:id', async function (req, res) {
-    const { id } = req.params
-    try {
-        await Transaction.findByIdAndDelete({ _id: id })
-        res.send(true)
-    } catch (e) {
-        res.send(false)
-    }
-
+router.put('/update', async function (req, res) {
+    const { clientName, property, value } = req.body
+    const updateClient = await dataBaseService().updateClient(clientName, property, value)
+    res.send(updateClient)
 })
-
 
 module.exports = router
